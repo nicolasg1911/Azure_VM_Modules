@@ -1,53 +1,48 @@
-#Asigna una ip publica a la Vm
-resource "azurerm_public_ip" "public_ip" {
-  name                = "${var.prefix}-pi"
-  resource_group_name =  "${var.prefix}-rg"
+resource "azurerm_public_ip" "api" {
+  name                = "${var.resource_group}-api"
+  resource_group_name = var.resource_group
   location            = var.location
   allocation_method   = "Static"
-}
 
-# Crear la interfaz de red
-resource "azurerm_network_interface" "my_nic" {
-  name                = "${var.prefix}-nic"
+}
+resource "azurerm_network_interface" "ani" {
+  name                = "${var.resource_group}-ani"
   location            = var.location
-  resource_group_name = "${var.prefix}-rg"
+  resource_group_name = var.resource_group
 
   ip_configuration {
-    name                          = "internal"
-    subnet_id                     = var.subnet-id
+    name                          = "${var.resource_group}-ani"
+    subnet_id                     =  var.subnet-id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id = azurerm_public_ip.public_ip.id
+    public_ip_address_id          = azurerm_public_ip.api.id
   }
 }
-
-resource "azurerm_network_interface_security_group_association" "my_sg_as" {
-  network_interface_id      = azurerm_network_interface.my_nic.id
-  network_security_group_id = azurerm_network_security_group.example.id
-}
-
-resource "azurerm_network_security_group" "example" {
-  name                = "${var.prefix}-nsg"
+resource "azurerm_network_security_group" "ansg" {
+  name                = "${var.resource_group}-ansg"
   location            = var.location
-  resource_group_name = "${var.prefix}-rg"
+  resource_group_name = var.resource_group
 
   security_rule {
-    name                       = "test123"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
+        name                       = "SSH"
+        priority                   = 1001
+        direction                  = "Inbound"
+        access                     = "Allow"
+        protocol                   = "Tcp"
+        source_port_range          = "*"
+        destination_port_range     = "22"
+        source_address_prefix      = "*"
+        destination_address_prefix = "*"
+    }
+}    
+resource "azurerm_network_interface_security_group_association" "anisga" {
+  network_interface_id      = azurerm_network_interface.ani.id
+  network_security_group_id = azurerm_network_security_group.ansg.id
 }
-
-resource "azurerm_virtual_machine" "my_vm" {
-  name                  = "${var.prefix}-vm"
+resource "azurerm_virtual_machine" "vm" {
+  name                  = var.vm_name
   location              = var.location
-  resource_group_name   = "${var.prefix}-rg"
-  network_interface_ids = [azurerm_network_interface.my_nic.id]
+  resource_group_name   = var.resource_group
+  network_interface_ids = [azurerm_network_interface.ani.id]
   vm_size               = "Standard_DS1_v2"
 
   # Uncomment this line to delete the OS disk automatically when deleting the VM
@@ -63,7 +58,7 @@ resource "azurerm_virtual_machine" "my_vm" {
     version   = "latest"
   }
   storage_os_disk {
-    name              = "${var.prefix}-disk1"
+    name              = "myosdisk1"
     caching           = "ReadWrite"
     create_option     = "FromImage"
     managed_disk_type = "Standard_LRS"
